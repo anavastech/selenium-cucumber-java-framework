@@ -109,8 +109,8 @@ Valores por defecto en `src/test/resources/config.properties`. Cualquier clave s
 
 `.github/workflows/selenium.yml`:
 
-- En cada **push/PR a main**: solo `@smoke` (UI en Chrome + API), para feedback rápido.
-- Todas las noches (**cron**) y en **workflow_dispatch**: la suite de UI completa en una matriz Chrome / Firefox / Edge / chrome-mobile (`@smoke`), y la API una sola vez en un job aparte, porque no depende del navegador.
+- En cada **push/PR a main**, todas las noches (**cron**) y en **workflow_dispatch**: la suite de UI completa en una matriz Chrome / Firefox / Edge / chrome-mobile (`@smoke`), y la API una sola vez en un job aparte, porque no depende del navegador.
+- El cron detecta regresiones o cambios en los sitios públicos aunque no haya push ese día.
 
 Los reportes de Cucumber y los resultados de Allure quedan como artefactos de cada run.
 

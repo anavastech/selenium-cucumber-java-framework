@@ -12,37 +12,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  # En push/PR: solo @smoke (UI en Chrome + API) para feedback rápido.
-  smoke:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 21
-          cache: maven
-
-      - name: Run smoke tests
-        run: ./mvnw -B test -Dcucumber.filter.tags="@smoke"
-
-      - name: Upload reports
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: smoke-reports
-          path: |
-            target/cucumber-report/
-            target/allure-results/
-          retention-days: 14
-
-  # Nocturno / manual: la suite completa de UI en cada navegador, en paralelo.
+  # Suite completa de UI en cada navegador, en paralelo, en cada push, PR, noche o ejecución manual.
   # Chrome, Firefox y Edge vienen preinstalados en ubuntu-latest.
   ui-full:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -101,7 +73,6 @@ jobs:
 
   # La API no depende del navegador: corre una sola vez, fuera de la matriz.
   api-full:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
