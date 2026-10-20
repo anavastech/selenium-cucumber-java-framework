@@ -5,16 +5,20 @@ import java.io.File;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.UnaryOperator;
 import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.chromium.ChromiumDriverLogLevel;
 import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.edge.EdgeDriverService;
 import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxDriverLogLevel;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.firefox.GeckoDriverService;
 import org.openqa.selenium.remote.service.DriverFinder;
@@ -79,8 +83,11 @@ public final class DriverFactory {
       options.setBinary(binaries.browserPath());
     }
     return new ChromeDriver(
-        new ChromeDriverService.Builder()
-            .usingDriverExecutable(new File(binaries.driverPath()))
+        withDriverLog(
+                new ChromeDriverService.Builder()
+                    .usingDriverExecutable(new File(binaries.driverPath())),
+                "chrome",
+                builder -> builder.withLogLevel(ChromiumDriverLogLevel.DEBUG))
             .build(),
         options);
   }
@@ -91,8 +98,11 @@ public final class DriverFactory {
       options.setBinary(binaries.browserPath());
     }
     return new FirefoxDriver(
-        new GeckoDriverService.Builder()
-            .usingDriverExecutable(new File(binaries.driverPath()))
+        withDriverLog(
+                new GeckoDriverService.Builder()
+                    .usingDriverExecutable(new File(binaries.driverPath())),
+                "firefox",
+                builder -> builder.withLogLevel(FirefoxDriverLogLevel.TRACE))
             .build(),
         options);
   }
@@ -103,10 +113,29 @@ public final class DriverFactory {
       options.setBinary(binaries.browserPath());
     }
     return new EdgeDriver(
-        new EdgeDriverService.Builder()
-            .usingDriverExecutable(new File(binaries.driverPath()))
+        withDriverLog(
+                new EdgeDriverService.Builder()
+                    .usingDriverExecutable(new File(binaries.driverPath())),
+                "edge",
+                builder -> builder.withLoglevel(ChromiumDriverLogLevel.DEBUG))
             .build(),
         options);
+  }
+
+  /**
+   * Con {@code -Ddriver.log=true}, el driver escribe un log detallado en {@code target/driver-logs/}
+   * (un archivo por sesión, porque los escenarios corren en paralelo). Es la única forma de ver por
+   * qué un navegador no arranca: la excepción solo dice "instance exited".
+   */
+  private static <B extends DriverService.Builder<?, ?>> B withDriverLog(
+      B builder, String browser, UnaryOperator<B> verbose) {
+    if (!Config.driverLog()) {
+      return builder;
+    }
+    File dir = new File("target/driver-logs");
+    dir.mkdirs();
+    builder.withLogFile(new File(dir, browser + "-" + UUID.randomUUID() + ".log"));
+    return verbose.apply(builder);
   }
 
   /** Corre Selenium Manager la primera vez y memoriza las rutas para el resto de la corrida. */

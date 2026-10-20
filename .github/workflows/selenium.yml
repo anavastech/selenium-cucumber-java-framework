@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -31,7 +31,7 @@ jobs:
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: smoke-reports
           path: |
@@ -59,25 +59,44 @@ jobs:
           - browser: chrome-mobile
             tags: '@ui and @smoke'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
           cache: maven
 
+      # Diagnóstico: si el navegador no puede ni abrir about:blank, el error real aparece aquí
+      # (la excepción de Selenium solo dice "instance exited").
+      - name: Check ${{ matrix.browser }} starts headless
+        if: matrix.browser == 'edge'
+        continue-on-error: true
+        run: |
+          /opt/microsoft/msedge/msedge --version
+          echo "apparmor_restrict_unprivileged_userns=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)"
+          timeout 60 /opt/microsoft/msedge/msedge --headless=new --disable-gpu --dump-dom about:blank
+
+      # Ubuntu 24.04 bloquea los user namespaces sin privilegios salvo para apps con perfil AppArmor.
+      # Google Chrome trae ese perfil, Edge no: sin esto su sandbox no puede iniciar y el navegador
+      # se cierra al arrancar. Se levanta la restricción en el runner (efímero) en vez de usar
+      # --no-sandbox, así Edge corre con el sandbox activo igual que en una máquina real.
+      - name: Allow Edge sandbox (AppArmor user namespaces)
+        if: matrix.browser == 'edge'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Run UI suite on ${{ matrix.browser }}
-        run: ./mvnw -B test -Dbrowser=${{ matrix.browser }} -Dcucumber.filter.tags="${{ matrix.tags }}"
+        run: ./mvnw -B test -Dbrowser=${{ matrix.browser }} -Dcucumber.filter.tags="${{ matrix.tags }}" -Ddriver.log=true
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ui-reports-${{ matrix.browser }}
           path: |
             target/cucumber-report/
             target/allure-results/
+            target/driver-logs/
           retention-days: 14
 
   # La API no depende del navegador: corre una sola vez, fuera de la matriz.
@@ -86,9 +105,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -99,7 +118,7 @@ jobs:
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: api-reports
           path: |

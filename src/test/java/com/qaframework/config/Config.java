@@ -47,6 +47,11 @@ public final class Config {
     return Boolean.parseBoolean(get("headless"));
   }
 
+  /** Log detallado de chromedriver/geckodriver/msedgedriver en target/driver-logs/. */
+  public static boolean driverLog() {
+    return Boolean.parseBoolean(get("driver.log"));
+  }
+
   /** Timeout por defecto de las esperas explícitas (WebDriverWait y Awaitility). */
   public static Duration explicitWait() {
     return Duration.ofSeconds(Long.parseLong(get("explicit.wait.seconds")));
