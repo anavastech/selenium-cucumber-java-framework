@@ -39,16 +39,6 @@ jobs:
           java-version: 21
           cache: maven
 
-      # Diagnóstico: si el navegador no puede ni abrir about:blank, el error real aparece aquí
-      # (la excepción de Selenium solo dice "instance exited").
-      - name: Check ${{ matrix.browser }} starts headless
-        if: matrix.browser == 'edge'
-        continue-on-error: true
-        run: |
-          /opt/microsoft/msedge/msedge --version
-          echo "apparmor_restrict_unprivileged_userns=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)"
-          timeout 60 /opt/microsoft/msedge/msedge --headless=new --disable-gpu --dump-dom about:blank
-
       # Ubuntu 24.04 bloquea los user namespaces sin privilegios salvo para apps con perfil AppArmor.
       # Google Chrome trae ese perfil, Edge no: sin esto su sandbox no puede iniciar y el navegador
       # se cierra al arrancar. Se levanta la restricción en el runner (efímero) en vez de usar
@@ -56,6 +46,18 @@ jobs:
       - name: Allow Edge sandbox (AppArmor user namespaces)
         if: matrix.browser == 'edge'
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # Calentamiento: el primer arranque de Edge en un runner recién creado tarda 30-40s y, si
+      # arrancan 4 a la vez (una por thread), su network service se cae y la primera navegación
+      # se cuelga ("Timed out receiving message from renderer"). Un arranque previo en serie paga
+      # ese costo una sola vez; los siguientes arrancan en ~1s. Si Edge no puede ni abrir la
+      # página, el error real aparece aquí (la excepción de Selenium solo dice "instance exited").
+      - name: Warm up ${{ matrix.browser }}
+        if: matrix.browser == 'edge'
+        continue-on-error: true
+        run: |
+          /opt/microsoft/msedge/msedge --version
+          timeout 120 /opt/microsoft/msedge/msedge --headless=new --disable-gpu --dump-dom https://www.saucedemo.com > /dev/null
 
       - name: Run UI suite on ${{ matrix.browser }}
         run: ./mvnw -B test -Dbrowser=${{ matrix.browser }} -Dcucumber.filter.tags="${{ matrix.tags }}" -Ddriver.log=true
